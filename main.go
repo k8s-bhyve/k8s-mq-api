@@ -90,7 +90,7 @@ func HandleClusterStatus(w http.ResponseWriter, r *http.Request) {
 	var instanceid string
 	params := mux.Vars(r)
 	instanceid = params["instanceid"]
-	var regexpInstanceId = regexp.MustCompile(`^[a-z_]([a-z0-9])*$`)
+	var regexpInstanceId = regexp.MustCompile(`^[aA-zZ_]([aA-zZ0-9_])*$`)
 
 	// check the name field is between 3 to 40 chars
 	if len(instanceid) < 3 || len(instanceid) > 40 {
@@ -98,7 +98,7 @@ func HandleClusterStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !regexpInstanceId.MatchString(instanceid) {
-		http.Error(w, "The instance name should be valid form, [a-z0-9]", 400)
+		http.Error(w, "The instance name should be valid form, ^[aA-zZ_]([aA-zZ0-9_])*$", 400)
 		return
 	}
 	SqliteDBPath := fmt.Sprintf("%s/var/db/k8s/%s.sqlite", workdir,instanceid)
@@ -129,9 +129,9 @@ func HandleClusterCreate(w http.ResponseWriter, r *http.Request) {
 	var instanceid string
 	params := mux.Vars(r)
 	instanceid = params["instanceid"]
-	var regexpInstanceId = regexp.MustCompile(`^[a-z_]([a-z0-9])*$`)
+	var regexpInstanceId = regexp.MustCompile(`^[aA-zZ_]([aA-zZ0-9_])*$`)
 	var regexpSize = regexp.MustCompile(`^[1-9](([0-9]+)?)([m|g|t])$`)
-	var regexpEmail = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+	var regexpEmail = regexp.MustCompile("^[a-z^[aA-zZ_]([aA-zZ0-9_])*$.!#$%&'*+/=?^_`{|}~-]+@[a-z^[aA-zZ_]([aA-zZ0-9_])*$](?:[a-z^[aA-zZ_]([aA-zZ0-9_])*$-]{0,61}[a-z^[aA-zZ_]([aA-zZ0-9_])*$])?(?:\\.[a-z^[aA-zZ_]([aA-zZ0-9_])*$](?:[a-z^[aA-zZ_]([aA-zZ0-9_])*$-]{0,61}[a-z^[aA-zZ_]([aA-zZ0-9_])*$])?)*$")
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -147,7 +147,7 @@ func HandleClusterCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !regexpInstanceId.MatchString(instanceid) {
-		response := Response{"The instance name should be valid form, [a-z0-9]"}
+		response := Response{"The instance name should be valid form, ^[aA-zZ_]([aA-zZ0-9_])*$"}
 		js, err := json.Marshal(response)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -381,7 +381,7 @@ func HandleClusterDestroy(w http.ResponseWriter, r *http.Request) {
 	var instanceid string
 	params := mux.Vars(r)
 	instanceid = params["instanceid"]
-	var regexpInstanceId = regexp.MustCompile(`^[a-z_]([a-z0-9])*$`)
+	var regexpInstanceId = regexp.MustCompile(`^[aA-zZ_]([aA-zZ0-9_])*$`)
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -391,7 +391,7 @@ func HandleClusterDestroy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !regexpInstanceId.MatchString(instanceid) {
-		http.Error(w, "The instance name should be valid form, [a-z0-9]", 400)
+		http.Error(w, "The instance name should be valid form, ^[aA-zZ_]([aA-zZ0-9_])*$", 400)
 		return
 	}
 
