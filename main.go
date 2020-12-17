@@ -131,7 +131,7 @@ func HandleClusterCreate(w http.ResponseWriter, r *http.Request) {
 	instanceid = params["instanceid"]
 	var regexpInstanceId = regexp.MustCompile(`^[aA-zZ_]([aA-zZ0-9_])*$`)
 	var regexpSize = regexp.MustCompile(`^[1-9](([0-9]+)?)([m|g|t])$`)
-	var regexpEmail = regexp.MustCompile("^[a-z^[aA-zZ_]([aA-zZ0-9_])*$.!#$%&'*+/=?^_`{|}~-]+@[a-z^[aA-zZ_]([aA-zZ0-9_])*$](?:[a-z^[aA-zZ_]([aA-zZ0-9_])*$-]{0,61}[a-z^[aA-zZ_]([aA-zZ0-9_])*$])?(?:\\.[a-z^[aA-zZ_]([aA-zZ0-9_])*$](?:[a-z^[aA-zZ_]([aA-zZ0-9_])*$-]{0,61}[a-z^[aA-zZ_]([aA-zZ0-9_])*$])?)*$")
+	var regexpEmail = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -397,7 +397,7 @@ func HandleClusterDestroy(w http.ResponseWriter, r *http.Request) {
 
 	// check for existance
 	// todo: to API
-	SqliteDBPath := fmt.Sprintf("%ss/var/db/k8s/%s.sqlite", workdir,instanceid)
+	SqliteDBPath := fmt.Sprintf("%s/var/db/k8s/%s.sqlite", workdir,instanceid)
 	if !fileExists(SqliteDBPath) {
 		response := Response{"no found"}
 		js, err := json.Marshal(response)
@@ -415,7 +415,6 @@ func HandleClusterDestroy(w http.ResponseWriter, r *http.Request) {
 	str.WriteString("{\"Command\":\"")
 	str.WriteString(runscript)
 	str.WriteString("\",\"CommandArgs\":{\"mode\":\"destroy\",\"k8s_name\":\"")
-	str.WriteString("{\"Command\":\"k8world\",\"CommandArgs\":{\"mode\":\"destroy\",\"k8s_name\":\"")
 	str.WriteString(instanceid)
 	str.WriteString("\"")
 	str.WriteString("}}");
