@@ -41,6 +41,7 @@ type Cluster struct {
 	Pv_enable		string	`"pv_enable,omitempty"`
 	Kubelet_master		string	`"kubelet_master,omitempty"`
 	Email			string	`"email,omitempty"`
+	Callback		string	`"callback,omitempty"`
 }
 // Todo: validate mod?
 //  e.g for simple check:
@@ -132,6 +133,7 @@ func HandleClusterCreate(w http.ResponseWriter, r *http.Request) {
 	var regexpInstanceId = regexp.MustCompile(`^[aA-zZ_]([aA-zZ0-9_])*$`)
 	var regexpSize = regexp.MustCompile(`^[1-9](([0-9]+)?)([m|g|t])$`)
 	var regexpEmail = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+	var regexpCallback = regexp.MustCompile(`^(http|https)://`)
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -187,7 +189,18 @@ func HandleClusterCreate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(cluster)
 
 	if !regexpEmail.MatchString(cluster.Email) {
-		response := Response{"email be valid form"}
+		response := Response{"email should be valid form"}
+		js, err := json.Marshal(response)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Error(w, string(js), 400)
+		return
+	}
+
+	if !regexpCallback.MatchString(cluster.Callback) {
+		response := Response{"callback should be valid form"}
 		js, err := json.Marshal(response)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
