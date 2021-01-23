@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"reflect"
 	"flag"
+	"github.com/getsentry/sentry-go"
 )
 
 var lock = sync.RWMutex{}
@@ -66,10 +67,16 @@ func fileExists(filename string) bool {
 // main function to boot up everything
 func main() {
 
-	flag.Parse()
-	var err error
+//	serr := sentry.Init(sentry.ClientOptions{
+//		Dsn: "https://<>",
+//	})
+//	if serr != nil {
+//		log.Fatalf("sentry.Init: %s", serr)
+//	}
 
-	config, err = LoadConfiguration(*configFile)
+	config, err := LoadConfiguration(*configFile)
+
+	sentry.CaptureException(err)
 
 	runscript = *runScript
 	workdir=config.CbsdEnv
@@ -163,7 +170,7 @@ func HandleClusterCreate(w http.ResponseWriter, r *http.Request) {
 	// todo: to API
 	SqliteDBPath := fmt.Sprintf("%s/var/db/k8s/%s.sqlite", workdir,instanceid)
 	if fileExists(SqliteDBPath) {
-		response := Response{"Cluster already exist"}
+		response := Response{"cluster already exist"}
 		js, err := json.Marshal(response)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -174,7 +181,7 @@ func HandleClusterCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Body == nil {
-		response := Response{"Please send a request body"}
+		response := Response{"please send a request body"}
 		js, err := json.Marshal(response)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -183,31 +190,37 @@ func HandleClusterCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, string(js), 400)
 		return
 	}
+
+	fmt.Println("create wakeup: [ %s ]", r.Body)
 
 	var cluster Cluster
 	_ = json.NewDecoder(r.Body).Decode(&cluster)
-	json.NewEncoder(w).Encode(cluster)
+	//json.NewEncoder(w).Encode(cluster)
 
-	if !regexpEmail.MatchString(cluster.Email) {
-		response := Response{"email should be valid form"}
-		js, err := json.Marshal(response)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+	if ( len(cluster.Email)>2 ) {
+		if !regexpEmail.MatchString(cluster.Email) {
+			response := Response{"email should be valid form"}
+			js, err := json.Marshal(response)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			http.Error(w, string(js), 400)
 			return
 		}
-		http.Error(w, string(js), 400)
-		return
 	}
 
-	if !regexpCallback.MatchString(cluster.Callback) {
-		response := Response{"callback should be valid form"}
-		js, err := json.Marshal(response)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+	if ( len(cluster.Callback)>2) {
+		if !regexpCallback.MatchString(cluster.Callback) {
+			response := Response{"callback should be valid form"}
+			js, err := json.Marshal(response)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			http.Error(w, string(js), 400)
 			return
 		}
-		http.Error(w, string(js), 400)
-		return
 	}
 
 	// master value validation
@@ -232,6 +245,7 @@ func HandleClusterCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, string(js), 400)
 		return
 	}
+
 	if !regexpSize.MatchString(cluster.Master_vm_ram) {
 		response := Response{"The master_vm_ram should be valid form, 512m, 1g"}
 		js, err := json.Marshal(response)
