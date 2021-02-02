@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"reflect"
 	"flag"
-	"github.com/getsentry/sentry-go"
+//	"github.com/getsentry/sentry-go"
 )
 
 var lock = sync.RWMutex{}
@@ -67,6 +67,9 @@ func fileExists(filename string) bool {
 // main function to boot up everything
 func main() {
 
+	flag.Parse()
+	var err error
+
 //	serr := sentry.Init(sentry.ClientOptions{
 //		Dsn: "https://<>",
 //	})
@@ -74,9 +77,9 @@ func main() {
 //		log.Fatalf("sentry.Init: %s", serr)
 //	}
 
-	config, err := LoadConfiguration(*configFile)
+	config, err = LoadConfiguration(*configFile)
 
-	sentry.CaptureException(err)
+//	sentry.CaptureException(err)
 
 	runscript = *runScript
 	workdir=config.CbsdEnv
@@ -396,9 +399,18 @@ func HandleClusterCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	str.WriteString("}}");
-
 	fmt.Printf("C: [%s]\n",str.String())
+
+	response := Response{"queued"}
+	js, err := json.Marshal(response)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	go realInstanceCreate(str.String())
+
+	http.Error(w, string(js), 200)
 
 	return
 }
