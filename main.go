@@ -114,7 +114,7 @@ func HandleClusterStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	SqliteDBPath := fmt.Sprintf("%s/var/db/k8s/%s.sqlite", workdir,instanceid)
 	if fileExists(SqliteDBPath) {
-		http.Error(w, "{ status: \"exist\"}", 400)
+		http.Error(w, "{ status: \"exist\"}", 200)
 		return
 	} else {
 		http.Error(w, "{}", 400)
