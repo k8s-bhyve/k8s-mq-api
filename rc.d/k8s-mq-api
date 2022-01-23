@@ -16,7 +16,7 @@ logfile="${logdir}/k8s_mq_api.log"
 extra_commands="reload"
 command="/usr/local/sbin/k8s-mq-api"
 k8s_mq_api_user=${k8s_mq_api_user-"cbsd"}
-k8s_mq_api_config=${k8s_mq_api_config-"/usr/local/etc/cbsd-mq-router.json"}
+k8s_mq_api_config=${k8s_mq_api_config-"/usr/local/etc/cbsd-mq-k8s.json"}
 required_files="${k8s_mq_api_config}"
 
 k8s_mq_api_args=${k8s_mq_api_args-"-config ${k8s_mq_api_config}"}

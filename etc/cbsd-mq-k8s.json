@@ -1,0 +1,18 @@
+{
+    "cbsdenv": "/usr/jails",
+    "cbsdcolor": false,
+    "broker": "beanstalkd",
+    "logfile": "/dev/stdout",
+    "recomendation": "/usr/local/cbsd/modules/k8s.d/misc/recomendation.sh",
+    "freejname": "/usr/local/cbsd/modules/k8s.d/misc/freejname.sh",
+    "server_url": "https://127.0.0.1",
+    "beanstalkd": {
+      "uri": "127.0.0.1:11300",
+      "tube": "cbsd_zroot",
+      "reply_tube_prefix": "cbsd_zroot_result_id",
+      "reconnect_timeout": 5,
+      "reserve_timeout": 5,
+      "publish_timeout": 5,
+      "logdir": "/var/log/cbsdmq"
+    }
+}
