@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"flag"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -236,6 +237,7 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/api/v1/create/{InstanceId}", feeds.HandleClusterCreate).Methods("POST")
 	router.HandleFunc("/api/v1/status/{InstanceId}", feeds.HandleClusterStatus).Methods("GET")
+	router.HandleFunc("/api/v1/kubeconfig/{InstanceId}", feeds.HandleClusterKubeConfig).Methods("GET")
 	router.HandleFunc("/api/v1/destroy/{InstanceId}", feeds.HandleClusterDestroy).Methods("GET")
 	router.HandleFunc("/api/v1/cluster", feeds.HandleClusterCluster).Methods("GET")
 
@@ -320,14 +322,11 @@ func isCidAllowed(feeds *MyFeeds, Cid string) bool {
 	return false
 }
 
-//func HandleClusterStatus(w http.ResponseWriter, r *http.Request) {
 func (feeds *MyFeeds) HandleClusterStatus(w http.ResponseWriter, r *http.Request) {
 	var InstanceId string
 	params := mux.Vars(r)
 
-	InstanceId = params["instanceid"]
-//	var regexpInstanceId = regexp.MustCompile(`^[aA-zZ_]([aA-zZ0-9_])*$`)
-
+	InstanceId = params["InstanceId"]
 	if !validateInstanceId(InstanceId) {
 		JSONError(w, "The InstanceId should be valid form: ^[a-z_]([a-z0-9_])*$ (maxlen: 40)", http.StatusNotFound)
 		return
@@ -345,12 +344,100 @@ func (feeds *MyFeeds) HandleClusterStatus(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	SqliteDBPath := fmt.Sprintf("%s/var/db/k8s/%s.sqlite", workdir,InstanceId)
-	if fileExists(SqliteDBPath) {
-		http.Error(w, "{ status: \"exist\"}", 200)
+	HomePath := fmt.Sprintf("%s/%s/vms", *dbDir, Cid)
+	if _, err := os.Stat(HomePath); os.IsNotExist(err) {
+		JSONError(w, "not found", http.StatusNotFound)
 		return
+	}
+
+	mapfile := fmt.Sprintf("%s/var/db/k8s/map/%s-%s", workdir, Cid, InstanceId)
+
+	if !fileExists(config.Recomendation) {
+		fmt.Printf("no such map file %s/var/db/k8s/map/%s-%s\n", workdir, Cid, InstanceId)
+		JSONError(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	b, err := ioutil.ReadFile(mapfile) // just pass the file name
+	if err != nil {
+		fmt.Printf("unable to read jname from %s/var/db/k8s/map/%s-%s\n", workdir, Cid, InstanceId)
+		JSONError(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	SqliteDBPath := fmt.Sprintf("%s/%s/%s-bhyve.ssh", *dbDir, Cid, string(b))
+	if fileExists(SqliteDBPath) {
+		b, err := ioutil.ReadFile(SqliteDBPath) // just pass the file name
+		if err != nil {
+			JSONError(w, "", 400)
+			return
+		} else {
+			// already in json - send as-is
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.WriteHeader(200)
+			http.Error(w, string(b), 200)
+			return
+		}
 	} else {
 		JSONError(w, "", http.StatusNotFound)
+	}
+}
+
+func (feeds *MyFeeds) HandleClusterKubeConfig(w http.ResponseWriter, r *http.Request) {
+	var InstanceId string
+	params := mux.Vars(r)
+
+	InstanceId = params["InstanceId"]
+	if !validateInstanceId(InstanceId) {
+		JSONError(w, "The InstanceId should be valid form: ^[a-z_]([a-z0-9_])*$ (maxlen: 40)", http.StatusNotFound)
+		return
+	}
+
+	Cid := r.Header.Get("cid")
+	if !validateCid(Cid) {
+		JSONError(w, "The cid should be valid form: ^[a-f0-9]{32}$", http.StatusNotFound)
+		return
+	}
+
+	if !isCidAllowed(feeds, Cid) {
+		fmt.Printf("CID not in ACL: %s\n", Cid)
+		JSONError(w, "not allowed", http.StatusInternalServerError)
+		return
+	}
+
+	VmPath := fmt.Sprintf("%s/%s/cluster-%s", *dbDir, Cid, InstanceId)
+
+	if !fileExists(VmPath) {
+		fmt.Printf("ClusterKubeConfig: Error read vmpath file  [%s]\n", VmPath)
+		JSONError(w, "", 400)
+		return
+	}
+
+	b, err := ioutil.ReadFile(VmPath) // just pass the file name
+	if err != nil {
+		fmt.Printf("Error read vmpath file  [%s]\n", VmPath)
+		JSONError(w, "", 400)
+		return
+	} else {
+		kubeFile := fmt.Sprintf("%s/var/db/k8s/%s.kubeconfig", workdir, string(b))
+		if fileExists(kubeFile) {
+			b, err := ioutil.ReadFile(kubeFile) // just pass the file name
+			if err != nil {
+				fmt.Printf("unable to read content %s\n", kubeFile)
+				JSONError(w, "", http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "text/plain")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.WriteHeader(200)
+			http.Error(w, string(b), 200)
+			return
+		} else {
+			fmt.Printf("Error read kubeconfig  [%s]\n", kubeFile)
+			JSONError(w, "", 400)
+			return
+		}
 	}
 }
 
@@ -527,6 +614,25 @@ func (feeds *MyFeeds) HandleClusterCreate(w http.ResponseWriter, r *http.Request
 		JSONError(w, "not allowed", http.StatusInternalServerError)
 		return
 	}
+
+	// Count+Limits per CID should be implemented here (database req).
+	ClusterTimePath := fmt.Sprintf("%s/%x.time", *dbDir, cid)
+	if fileExists(ClusterTimePath) {
+		fmt.Printf("Error: limit of clusters per user has been exceeded: [%s]\n", ClusterTimePath)
+		JSONError(w, "limit of clusters per user has been exceeded: 1", http.StatusInternalServerError)
+		return
+	}
+
+	ClusterTime := time.Now().Unix()
+
+	tfile, fileErr := os.Create(ClusterTimePath)
+	if fileErr != nil {
+		fmt.Println(fileErr)
+		return
+	}
+	fmt.Fprintf(tfile, "%s\n%s\n", ClusterTime,InstanceId)
+
+	tfile.Close()
 
 	ClusterPathDir := fmt.Sprintf("%s/%x", *dbDir, cid)
 
