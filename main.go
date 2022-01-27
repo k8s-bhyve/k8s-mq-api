@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -31,6 +32,8 @@ var runscript string
 var workdir string
 var server_url string
 var acl_enable bool
+
+var clusterLimitMax int
 
 type Response struct {
 	Message    string
@@ -68,6 +71,7 @@ var (
 	allowListFile	= flag.String("allowlist", "", "Path to PubKey whitelist, e.g: -allowlist /usr/local/etc/cbsd-mq-api.allow")
 	dbDir		= flag.String("dbdir", "/var/db/cbsd-k8s", "db root dir")
 	serverUrl	= flag.String("server_url", "http://127.0.0.1:65532", "Server URL for external requests")
+	clusterLimit	= flag.Int("cluster_limit", 3, "Max number of clusters")
 )
 
 type AllowList struct {
@@ -164,6 +168,8 @@ func main() {
 	workdir=config.CbsdEnv
 	server_url = config.ServerUrl
 
+	clusterLimitMax = *clusterLimit
+
 	if err != nil {
 		fmt.Println("config load error")
 		os.Exit(1)
@@ -184,6 +190,8 @@ func main() {
 	}
 
 	f := &Feed{}
+
+	fmt.Printf("* Cluster limit: %d\n", clusterLimitMax)
 
 	// WhiteList
 	if (*allowListFile == "") || (!fileExists(*allowListFile)) {
@@ -551,6 +559,37 @@ func getJname() string {
 func (feeds *MyFeeds) HandleClusterCreate(w http.ResponseWriter, r *http.Request) {
 	var InstanceId string
 	params := mux.Vars(r)
+	var CurrentQueue int
+
+	// Check for global limt
+	ClusterQueuePath := fmt.Sprintf("%s/queue", *dbDir)
+	if fileExists(ClusterQueuePath) {
+		fd, err := os.Open(ClusterQueuePath)
+		if err != nil {
+			fmt.Printf("unable to read current queue len from %s\n", ClusterQueuePath)
+			JSONError(w, "limits exceeded, please try again later", http.StatusNotFound)
+			return
+		}
+		defer fd.Close()
+
+		_, err = fmt.Fscanf(fd,"%d",&CurrentQueue)
+		if err != nil {
+			if err != io.EOF {
+				//log.Fatal(err)
+				fmt.Printf("unable to read jname from %s\n", ClusterQueuePath)
+				JSONError(w, "limits exceeded, please try again later", http.StatusNotFound)
+				return
+			}
+		}
+
+		fmt.Printf("Current QUEUE: [%d]\n", CurrentQueue)
+		if CurrentQueue >= clusterLimitMax {
+			fmt.Printf("limits exceeded: (%d max)\n", clusterLimitMax)
+			JSONError(w, "limits exceeded, please try again later", http.StatusNotFound)
+			return
+		}
+	}
+
 
 	InstanceId = params["InstanceId"]
 	if !validateInstanceId(InstanceId) {
