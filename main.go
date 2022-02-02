@@ -1020,6 +1020,21 @@ func (feeds *MyFeeds) HandleClusterCreate(w http.ResponseWriter, r *http.Request
 
 	m.Close()
 
+	SqliteDBPath := fmt.Sprintf("%s/%x/%s-bhyve.ssh", *dbDir, cid, Jname)
+	fmt.Printf("Create empty/mock status file: [%s]\n", SqliteDBPath)
+
+	tfile, fileErr = os.Create(SqliteDBPath)
+	if fileErr != nil {
+		fmt.Println(fileErr)
+		return
+	}
+//	fmt.Fprintf(tfile, "%s\n%s\n", ClusterTime,InstanceId)
+
+
+	fmt.Fprintf(tfile,"\n{\n\"is_power_on\": \"false\",\n\"status\": \"pending\",\n\"progress\": 0\n}\n")
+
+	tfile.Close()
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	// write header is mandatory to overwrite header
